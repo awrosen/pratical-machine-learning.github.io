@@ -1,0 +1,80 @@
+---
+title: "Course project"
+author: "A. W. Rosen"
+date: "12 July 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+### Setting the Working Directory, cleaning the Global Enviroment and loading packages
+```{r }
+setwd("/Users/Andreas/Desktop/Data Science/practical machine learning")
+rm(list=ls())
+library(caret);library(rpart);library(rpart.plot);library(rattle);library(randomForest)
+```
+
+### Getting and cleaning the data
+```{r }
+pml.training<-read.csv("pml-training.csv", sep = ",", na.strings = c("", "NA"))
+pml.testing<-read.csv("pml-testing.csv", sep = ",", na.strings = c("", "NA"))
+```
+
+Remove the first 7 variables since they are either non-numerical or related to a time-series
+```{r }
+training<-pml.training[,-(1:7)]
+```
+Remove the columens with NAs
+```{r }
+mostlyNA <- sapply(training, function(x) mean(is.na(x))) > 0.95
+training <- training[, mostlyNA==F]
+```
+Divide the training set into two as cross validation, I choose to split it in 75% for training and 25% for testing.
+```{r }
+set.seed(1337)
+inTrain<-createDataPartition(y=training$class, p=0.75,list=F)
+training<-training[inTrain,]
+testing<-training[-inTrain,]
+```
+
+### Building the model
+We start off with creating a model using a desciontree with rpart with the `training` dataset and using it with the `testing`  dataset, which is not the final testing set:
+```{r }
+modFit1 <- rpart(classe ~ ., data=training, method="class")
+fancyRpartPlot(modFit1)
+
+predictions1 <- predict(modFit1, testing, type = "class")
+confusionMatrix(predictions1,testing$classe)
+```
+The accuracy is only at 0.7552, which we should be able to improve with other techniques.
+
+Applying a random forrest model to the `training` dataset and using it on the `testing` data set:
+```{r }
+modFit2 <- randomForest(training$classe ~ .,data=training)
+predictions2 <- predict(modFit2, testing, type = "class")
+confusionMatrix(predictions2, testing$classe)
+```
+This results in an empressiv accurarcy of 1(!) which mean that the entire dataset was predicted correctly.
+
+Applying a generalized boosted regression model to the `training`dataset and using it on the `testing` data set:
+```{r}
+modFit3 <- train(training$classe ~ ., method="gbm",data=training,verbose=FALSE)
+predictions3 <- predict(modFit3, testing)
+confusionMatrix(predictions3, testing$classe)
+```
+Here we get an accuracy of 0.9747 which is also good, but not as impressive as the random forrest model.
+
+Due to the "perfect" accuracy from the `modFit2` with the random forrest model, I choose not to try any model ensambling, since I'm afraid that by including the generalized boosted regression model, might just lead to greater overfitting with little to no benefit in terms of accuracy, compared to the random forrest model alone.
+Since the accuracy is 1 in my final model, I would expect some overfitting, which might lead to a some "out of sample error". However in the next paragraph where we try to apply the model to the final testset `pml.training` all the 20 predictions turn out right, so the "out of sample error" dosn't appear to bad, even tough it's a small test set.
+
+### Predict the 20 cases for the quiz in `pml.training`
+```{r}
+predictions4 <- predict(modFit2, pml.testing, type = "class")
+predictions4
+```
