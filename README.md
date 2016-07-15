@@ -1,6 +1,7 @@
 # pratical-machine-learning.github.io
 Coursera's pratical machine learning:
 
+To view the rapport online please visit: https://awrosen.github.io/pratical-machine-learning.github.io/
 
 Background
 
